@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "genericapp.fullname" . }}
+  labels:
+    {{- include "genericapp.labels" . | nindent 4 }}
+  {{- if .Values.service.annotations }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    {{- range .Values.service.ports }}
+    - protocol: TCP
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+      name: {{ .name }}
+    {{- end }}
+  selector:
+    {{- include "genericapp.selectorLabels" . | nindent 4 }}

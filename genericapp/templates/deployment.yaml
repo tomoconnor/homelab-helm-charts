@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "genericapp.fullname" . }}
+  labels:
+    {{- include "genericapp.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "genericapp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "genericapp.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "genericapp.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ if .Values.image.registry }}{{ .Values.image.registry }}/{{ end }}{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          {{- if .Values.image.command }}
+          command:
+              {{- toYaml .Values.image.command | nindent 12 }}
+          {{- end }}
+          {{- if .Values.image.args }}
+          args:
+            {{- toYaml .Values.image.args | nindent 12 }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.envFrom }}
+          envFrom:
+          {{- with .Values.envFrom }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }} {{/*  with .Values.envFrom      */}}
+          {{- end }} {{/*  if .Values.envFrom        */}}
+          
+          {{- if .Values.env }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          {{- end }}
+          ports:
+            {{- range .Values.service.ports }}
+            - containerPort: {{ .targetPort }}
+              name: {{ .name }}
+            {{- end }}
+          {{- if .Values.service.livenessProbe.enabled }}
+          livenessProbe:
+            {{.Values.service.livenessProbe.type}}:
+            {{- if eq .Values.service.livenessProbe.type "httpGet" }}
+              path: "{{ .Values.service.livenessProbe.path | default `/` }}"
+              port: {{ .Values.service.livenessProbe.port | default `http` }}
+            {{- else if eq .Values.service.livenessProbe.type "tcpSocket" }}
+              port: {{ .Values.service.livenessProbe.port | default `http` }}
+            {{- else if eq .Values.service.livenessProbe.type "grpc" }}
+              port: {{ .Values.service.livenessProbe.port | default `http` }}
+            {{- else if eq .Values.service.livenessProbe.type "exec" }}
+                command:
+                  {{- range .Values.service.livenessProbe.exec.command }}
+                  - {{ . }}
+                  {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.service.readinessProbe.enabled }}
+          readinessProbe:
+            {{.Values.service.readinessProbe.type}}:
+            {{- if eq .Values.service.readinessProbe.type "httpGet" }}
+              path: "{{ .Values.service.readinessProbe.path | default `/` }}"
+              port: {{ .Values.service.readinessProbe.port | default `http` }}
+            {{- else if eq .Values.service.readinessProbe.type "tcpSocket" }}
+              port: {{ .Values.service.readinessProbe.port | default `http` }}
+            {{- else if eq .Values.service.readinessProbe.type "grpc" }}
+              port: {{ .Values.service.readinessProbe.port | default `http` }}
+            {{- else if eq .Values.service.readinessProbe.type "exec" }}
+                command:
+                  {{- range .Values.service.readinessProbe.exec.command }}
+                  - {{ . }}
+                  {{- end }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
